@@ -17,6 +17,9 @@ python src/myprogram.py test --work_dir work --test_data example/input.txt --tes
 # submit docker file
 cp Dockerfile submit/Dockerfile
 
+# submit requirements file
+cp requirements.txt submit/requirements.txt
+
 # submit source code
 cp -r src submit/src
 
