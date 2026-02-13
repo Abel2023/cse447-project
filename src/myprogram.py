@@ -6,6 +6,7 @@ import collections
 import string
 import random
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+from datasets import load_dataset
 
 
 class MyModel:
@@ -26,17 +27,28 @@ class MyModel:
         candidates += glob.glob(os.path.join("data", "*.txt"))
         candidates.append(os.path.join("example", "input.txt"))
 
+        lines = []
         for p in candidates:
             if os.path.isfile(p):
-                lines = []
                 with open(p, 'rt', encoding='utf-8', errors='ignore') as f:
                     for ln in f:
                         ln = ln.rstrip('\n')
                         if ln:
                             lines.append(ln)
-                if lines:
-                    return lines
-        return []
+                # if lines:
+                #     return lines
+        # english, spanish, arabic, chinese, hindi, russian
+        languages = ["en", "es", "ar", "zh-cn", "hi", "ru"]
+        words_per_lang = 3000
+        for lang in languages:
+            dataset = load_dataset("wiki40b", lang, split="train", streaming=True)
+            for i, item in enumerate(dataset):
+                text = item['text'].strip()
+                if text:
+                    lines.append(text)
+                if i >= words_per_lang:
+                    break
+        return lines
 
     @classmethod
     def load_test_data(cls, fname):
