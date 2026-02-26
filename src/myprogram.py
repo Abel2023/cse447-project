@@ -35,11 +35,9 @@ class MyModel:
                         ln = ln.rstrip('\n')
                         if ln:
                             lines.append(ln)
-                # if lines:
-                #     return lines
         # english, spanish, arabic, chinese, hindi, russian
-        languages = ["en", "es", "ar", "zh-cn", "hi", "ru"]
-        words_per_lang = 3000
+        languages = ["en", "es", "ar", "zh-cn", "hi", "ru", "ja", "de"]
+        words_per_lang = 5000
         for lang in languages:
             dataset = load_dataset("wiki40b", lang, split="train", streaming=True)
             for i, item in enumerate(dataset):
@@ -99,41 +97,47 @@ class MyModel:
         """
         preds = []
         ascii_pool = string.ascii_lowercase + string.ascii_uppercase + string.digits
+        lambdas = {4: 0.65, 3: 0.20, 2: 0.1, 1: 0.05}
         for inp in data:
-            try:
-                cand_counter = collections.Counter()
-                # try longest suffixes
-                found = False
-                for k in range(self.K, 0, -1):
-                    if len(inp) >= k:
-                        ctx = inp[-k:]
-                        if ctx in self.ngram_counts:
-                            cand_counter = self.ngram_counts[ctx]
-                            found = True
-                            break
-                if not found:
-                    # use global char frequencies
-                    cand_counter = self.global_counts
+            inp_low = inp.lower()
+            cand_counter = collections.Counter()
+            
+            for k in range(self.K, 0, -1):
+                if len(inp_low) >= k:
+                    ctx = inp_low[-k:]
+                    if ctx in self.ngram_counts:
+                        counts = self.ngram_counts[ctx]
+                        total = sum(counts.values())
+                        weight = lambdas[k]
+                        for char, count in counts.items():
+                            # using lowercase char for scoring to group 'A' and 'a'
+                            cand_counter[char.lower()] += ((count / total) * weight)
 
-                # choose top 3 by frequency
-                top = [c for c, _ in cand_counter.most_common(3)]
+            # global baseline
+            g_total = sum(self.global_counts.values())
+            if g_total > 0:
+                for char, count in self.global_counts.most_common(50):
+                    cand_counter[char.lower()] += (count / g_total)
 
-                # fill with high-probability ascii chars if needed
-                fill_idx = 0
-                while len(top) < 3 and fill_idx < len(ascii_pool):
-                    ch = ascii_pool[fill_idx]
-                    if ch not in top:
-                        top.append(ch)
-                    fill_idx += 1
+            # choose top 3 by frequency
+            top = [c for c, _ in cand_counter.most_common(3)]
 
-                # final fallback: repeat 'a' if something very strange happens
-                while len(top) < 3:
-                    top.append('a')
+            # fill with high-probability ascii chars if needed
+            fill_idx = 0
+            while len(top) < 3 and fill_idx < len(ascii_pool):
+                ch = ascii_pool[fill_idx]
+                if ch not in top:
+                    top.append(ch)
+                fill_idx += 1
+            
+            # final fallback: use most common chars
+            if len(top) < 3:
+                for char, _ in self.global_counts.most_common(10):
+                    if char.lower() not in top:
+                        top.append(char.lower())
+                    if len(top) == 3: break
 
-                preds.append(''.join(top[:3]))
-            except Exception:
-                # on any unexpected error, return deterministic fallback
-                preds.append(''.join(list('the')[:3]))
+            preds.append("".join(top[:3]))
         return preds
 
     def save(self, work_dir):
