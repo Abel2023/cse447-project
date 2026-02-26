@@ -41,18 +41,20 @@ class MyModel:
         for lang in languages:
             dataset = load_dataset("wiki40b", lang, split="train", streaming=True)
             for i, item in enumerate(dataset):
-                text = cls.clean_text(item['text'].lower())
+                text = cls.clean_text(item['text']).lower()
                 if text:
                     lines.append(text)
                 if i >= words_per_lang:
                     break
         return lines
     
-    # gets rid of '\' from input text
+    # gets rid of '\' and wiki40b special tags from input text
     @classmethod
     def clean_text(self, text):
         text = text.replace('\\n', ' ').replace('\\t', ' ').replace('\\"', '"')
         text = text.replace('\\', '')
+        text = text.replace('_START_ARTICLE_', '').replace('_START_PARAGRAPH_', '').replace('_START_SECTION_', '')
+        text = text.replace('_NEWLINE_', ' ')
         return text
 
     @classmethod
