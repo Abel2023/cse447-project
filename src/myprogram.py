@@ -35,9 +35,9 @@ class MyModel:
                         ln = ln.rstrip('\n')
                         if ln:
                             lines.append(ln)
-        # english, spanish, arabic, chinese, hindi, russian, japanese, german, vietnamese, turkish
-        languages = ["en", "es", "ar", "zh-cn", "hi", "ru", "ja", "de", "vi", "tr"]
-        words_per_lang = 5000
+        # english, spanish, arabic, chinese, hindi, russian, german, vietnamese, turkish
+        languages = ["en", "es", "ar", "zh-cn", "hi", "ru", "de", "vi", "tr", "ko"]
+        words_per_lang = 10000
         for lang in languages:
             dataset = load_dataset("wiki40b", lang, split="train", streaming=True)
             for i, item in enumerate(dataset):
@@ -117,7 +117,7 @@ class MyModel:
                         weight = lambdas[k]
                         for char, count in counts.items():
                             # using lowercase char for scoring to group 'A' and 'a'
-                            cand_counter[char] += ((count / total) * weight)
+                            cand_counter[char.lower()] += ((count / total) * weight)
 
             # global baseline
             g_total = sum(self.global_counts.values())
