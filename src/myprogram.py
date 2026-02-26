@@ -35,13 +35,13 @@ class MyModel:
                         ln = ln.rstrip('\n')
                         if ln:
                             lines.append(ln)
-        # english, spanish, arabic, chinese, hindi, russian
-        languages = ["en", "es", "ar", "zh-cn", "hi", "ru", "ja", "de"]
+        # english, spanish, arabic, chinese, hindi, russian, japanese, german, vietnamese, turkish
+        languages = ["en", "es", "ar", "zh-cn", "hi", "ru", "ja", "de", "vi", "tr"]
         words_per_lang = 5000
         for lang in languages:
             dataset = load_dataset("wiki40b", lang, split="train", streaming=True)
             for i, item in enumerate(dataset):
-                text = item['text'].strip()
+                text = cls.clean_text(item['text'].lower())
                 if text:
                     lines.append(text)
                 if i >= words_per_lang:
@@ -76,8 +76,8 @@ class MyModel:
                 for k in range(1, self.K + 1):
                     # context is up to k chars ending at position i (suffix)
                     start = max(0, i - k + 1)
-                    ctx = ''.join(chars[start:i + 1])
-                    nxt = chars[i + 1]
+                    ctx = ''.join(chars[start:i + 1]).lower()
+                    nxt = chars[i + 1].lower()
                     if ctx not in ngram_counts:
                         ngram_counts[ctx] = collections.Counter()
                     ngram_counts[ctx][nxt] += 1
@@ -90,6 +90,12 @@ class MyModel:
         # ensure work_dir exists
         os.makedirs(work_dir, exist_ok=True)
         self.save(work_dir)
+    
+    @classmethod
+    def clean_text(self, text):
+        text = text.replace('\\n', ' ').replace('\\t', ' ').replace('\\"', '"')
+        text = text.replace('\\', '')
+        return text
 
     def run_pred(self, data):
         """Predict top-3 characters for each input string in `data`.
@@ -97,7 +103,7 @@ class MyModel:
         """
         preds = []
         ascii_pool = string.ascii_lowercase + string.ascii_uppercase + string.digits
-        lambdas = {4: 0.65, 3: 0.20, 2: 0.1, 1: 0.05}
+        lambdas = {4: 0.64, 3: 0.21, 2: 0.1, 1: 0.05}
         for inp in data:
             inp_low = inp.lower()
             cand_counter = collections.Counter()
@@ -111,7 +117,7 @@ class MyModel:
                         weight = lambdas[k]
                         for char, count in counts.items():
                             # using lowercase char for scoring to group 'A' and 'a'
-                            cand_counter[char.lower()] += ((count / total) * weight)
+                            cand_counter[char] += ((count / total) * weight)
 
             # global baseline
             g_total = sum(self.global_counts.values())
