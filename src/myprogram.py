@@ -35,7 +35,7 @@ class MyModel:
                         ln = ln.rstrip('\n')
                         if ln:
                             lines.append(ln)
-        # english, spanish, arabic, chinese, hindi, russian, german, vietnamese, turkish
+        # english, spanish, arabic, chinese, hindi, russian, german, vietnamese, turkish, korean
         languages = ["en", "es", "ar", "zh-cn", "hi", "ru", "de", "vi", "tr", "ko"]
         words_per_lang = 10000
         for lang in languages:
@@ -47,6 +47,13 @@ class MyModel:
                 if i >= words_per_lang:
                     break
         return lines
+    
+    # gets rid of '\' from input text
+    @classmethod
+    def clean_text(self, text):
+        text = text.replace('\\n', ' ').replace('\\t', ' ').replace('\\"', '"')
+        text = text.replace('\\', '')
+        return text
 
     @classmethod
     def load_test_data(cls, fname):
@@ -90,22 +97,15 @@ class MyModel:
         # ensure work_dir exists
         os.makedirs(work_dir, exist_ok=True)
         self.save(work_dir)
-    
-    @classmethod
-    def clean_text(self, text):
-        text = text.replace('\\n', ' ').replace('\\t', ' ').replace('\\"', '"')
-        text = text.replace('\\', '')
-        return text
 
     def run_pred(self, data):
         """Predict top-3 characters for each input string in `data`.
         Strategy: use longest matching suffix context (up to K); if none, use global frequencies; then fall back to ASCII letters.
         """
         preds = []
-        ascii_pool = string.ascii_lowercase + string.ascii_uppercase + string.digits
         lambdas = {4: 0.64, 3: 0.21, 2: 0.1, 1: 0.05}
         for inp in data:
-            inp_low = inp.lower()
+            inp_low = inp.lower() # lowercase everything since its case insensitive
             cand_counter = collections.Counter()
             
             for k in range(self.K, 0, -1):
@@ -127,14 +127,6 @@ class MyModel:
 
             # choose top 3 by frequency
             top = [c for c, _ in cand_counter.most_common(3)]
-
-            # fill with high-probability ascii chars if needed
-            fill_idx = 0
-            while len(top) < 3 and fill_idx < len(ascii_pool):
-                ch = ascii_pool[fill_idx]
-                if ch not in top:
-                    top.append(ch)
-                fill_idx += 1
             
             # final fallback: use most common chars
             if len(top) < 3:
